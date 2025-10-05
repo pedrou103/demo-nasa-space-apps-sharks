@@ -8,12 +8,13 @@ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
 
 let chlorData = [];
 let heatLayer = null;
+let drawnLayer = null; // Guarda o retângulo desenhado atual
 
 // Grupo para armazenar os desenhos
 const drawnItems = new L.FeatureGroup();
 map.addLayer(drawnItems);
 
-// Adiciona o controle de desenho, ligado ao layerGroup
+// Controle de desenho
 const drawControl = new L.Control.Draw({
   draw: {
     rectangle: true,
@@ -36,34 +37,64 @@ fetch("chlorophyll_global.json")
     chlorData = data;
     console.log("Dados carregados:", data.length, "registros");
 
-    // Ativa modo de desenhar retângulo automaticamente ao carregar
+    // Ativa modo de desenhar retângulo automaticamente
     const drawRectangle = new L.Draw.Rectangle(map, {
       shapeOptions: { color: "#ff7800", weight: 1 },
     });
     drawRectangle.enable();
   });
 
-// Função para verificar se ponto está dentro do retângulo
+// Verifica se ponto está no retângulo
 function pointInBounds(point, bounds) {
   return bounds.contains(L.latLng(point.lat, point.lon));
 }
 
-// Evento ao desenhar retângulo
+// Cria card Bootstrap com os dados
+function createInfoCard(bounds, avg, count) {
+  const infoCard = document.getElementById("info-card");
+
+  const ne = bounds.getNorthEast();
+  const sw = bounds.getSouthWest();
+
+  infoCard.innerHTML = `
+    <div class="card shadow-sm">
+      <div class="card-header bg-success text-white">
+        Área Selecionada
+      </div>
+      <div class="card-body">
+        <p><strong>Latitude:</strong> ${sw.lat.toFixed(4)} to ${ne.lat.toFixed(4)}</p>
+        <p><strong>Longitude:</strong> ${sw.lng.toFixed(4)} to ${ne.lng.toFixed(4)}</p>
+        <p><strong>Média Fitoplâncton:</strong> ${avg.toFixed(4)} mg/m³</p>
+        <p><strong>Nº de pontos:</strong> ${count}</p>
+      </div>
+    </div>
+  `;
+}
+
+// Evento ao desenhar
 map.on(L.Draw.Event.CREATED, function (event) {
   const layer = event.layer;
-  drawnItems.addLayer(layer); // Adiciona ao grupo
-
   const bounds = layer.getBounds();
 
-  // Filtra os pontos dentro do retângulo
+  // Remove retângulo anterior, se existir
+  if (drawnLayer) {
+    drawnItems.removeLayer(drawnLayer);
+  }
+  drawnItems.addLayer(layer);
+  drawnLayer = layer; // Atualiza referência ao novo retângulo
+
+  // Filtra pontos dentro do retângulo
   const filteredPoints = chlorData
     .filter((d) => pointInBounds(d, bounds))
     .map((d) => [d.lat, d.lon, d.value]);
 
   // Remove heatmap anterior
-  if (heatLayer) map.removeLayer(heatLayer);
+  if (heatLayer) {
+    map.removeLayer(heatLayer);
+  }
 
   if (filteredPoints.length > 0) {
+    // Adiciona novo heatmap
     heatLayer = L.heatLayer(filteredPoints, {
       radius: 25,
       blur: 15,
@@ -71,20 +102,23 @@ map.on(L.Draw.Event.CREATED, function (event) {
       gradient: { 0.1: "blue", 0.3: "lime", 0.6: "yellow", 1: "red" },
     }).addTo(map);
 
-    // Calcula média de fitoplâncton
+    // Calcula média
     const total = filteredPoints.reduce((sum, p) => sum + p[2], 0);
     const avg = total / filteredPoints.length;
-    document.getElementById(
-      "coords"
-    ).innerText = `Média Fitoplâncton: ${avg.toFixed(4)} mg/m³ (${
-      filteredPoints.length
-    } pontos)`;
+
+    // Cria card com informações
+    createInfoCard(bounds, avg, filteredPoints.length);
   } else {
-    document.getElementById("coords").innerText =
-      "Nenhum ponto dentro da área selecionada";
+    document.getElementById("info-card").innerHTML = `
+      <div class="card border-warning">
+        <div class="card-body text-warning">
+          Nenhum ponto dentro da área selecionada.
+        </div>
+      </div>
+    `;
   }
 
-  // Re-ativa o modo de desenhar para permitir novos retângulos
+  // Reativa ferramenta de desenho
   const drawRectangle = new L.Draw.Rectangle(map, {
     shapeOptions: { color: "#ff7800", weight: 1 },
   });
