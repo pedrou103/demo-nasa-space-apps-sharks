@@ -1,86 +1,33 @@
 <!doctype html>
 <html lang="pt-BR">
+
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Protected Shark</title>
+    <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <style>
-        html, body { height: 100%; margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial; }
-        #map { height: calc(100vh - 50px); width: 100%; }
-        header { height: 50px; display: flex; align-items: center; gap: 12px; padding: 0 16px; box-shadow: 0 1px 6px rgba(0,0,0,0.08); }
-        .info { margin-left: auto; padding: 6px 10px; border-radius: 8px; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
-        .footer { padding: 8px 16px; font-size: 13px; color: #444; }
-    </style>
+    <!-- Leaflet.draw CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
+
+    <link rel="stylesheet" href="./style.css" />
 </head>
+
 <body>
     <header>
         <h3 style="margin:0">Mapa Mundo</h3>
-        <div class="info" id="coords">Clique no mapa para ver coordenadas</div>
+        <div class="info" id="coords">Selecione uma área para ver o heatmap</div>
     </header>
-
     <div id="map"></div>
-    <div class="footer">Base: OpenStreetMap — Biblioteca: Leaflet</div>
 
+    <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Leaflet.heat JS -->
     <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
-    <script>
-        const map = L.map('map').setView([20, 0], 2);
+    <!-- Leaflet.draw JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
 
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 19,
-            attribution: '&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors'
-        }).addTo(map);
-
-        let chlorData = [];
-
-        // Carrega o JSON de Fitoplâncton
-        fetch("chlorophyll_global.json")
-            .then(res => res.json())
-            .then(data => {
-                chlorData = data;
-                console.log("Dados carregados:", data.length, "registros");
-
-                // Criar array para o heatmap [lat, lon, intensity]
-                const heatPoints = chlorData.map(d => [d.lat, d.lon, d.value]);
-
-                // Adiciona o heatmap no mapa
-                L.heatLayer(heatPoints, {
-                    radius: 25,       // tamanho do ponto
-                    blur: 15,         // borrão
-                    maxZoom: 9,       // zoom máximo
-                    gradient: {0.1: 'blue', 0.3: 'lime', 0.6: 'yellow', 1: 'red'}
-                }).addTo(map);
-            });
-
-        // Função para encontrar o ponto mais próximo
-        function getChlorophyllValue(lat, lon) {
-            if (!chlorData || chlorData.length === 0) return null;
-
-            let closest = chlorData.reduce((prev, curr) => {
-                let prevDist = Math.hypot(prev.lat - lat, prev.lon - lon);
-                let currDist = Math.hypot(curr.lat - lat, curr.lon - lon);
-                return currDist < prevDist ? curr : prev;
-            });
-
-            return closest.value;
-        }
-
-        // Mostra coordenadas e valor de Fitoplâncton ao clicar
-        map.on('click', function (e) {
-            const lat = e.latlng.lat;
-            const lon = e.latlng.lng;
-            let text = `Lat: ${lat.toFixed(6)}, Lng: ${lon.toFixed(6)}`;
-
-            const chlor = getChlorophyllValue(lat, lon);
-            if (chlor !== null && chlor !== undefined) {
-                text += ` | Fitoplâncton: ${chlor.toFixed(4)} mg/m³`;
-            } else {
-                text += " | Sem dados de Fitoplâncton";
-            }
-
-            document.getElementById('coords').innerText = text;
-        });
-    </script>
+    <script src="./script.js"></script>
 </body>
+
 </html>
